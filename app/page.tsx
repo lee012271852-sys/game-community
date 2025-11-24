@@ -4,17 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
 
+/**
+ * GameVerse — 평론 & 커뮤니티 메인 (연보라 / 하늘색 계열)
+ *
+ * - 블록: 추천 많은 평론 / 최신 평론 / 추천 많은 커뮤니티 / 최신 커뮤니티 / 뉴스
+ * - Supabase 테이블: reviews, community_posts, news_posts (필수 컬럼: created_at, like_count, category 등)
+ */
+
 /* --------------------------
-   간단한 UI 컴포넌트 (Tailwind 전용)
-   - 필요하면 나중에 shadcn 버튼/카드로 쉽게 교체 가능
+   간단 UI 컴포넌트 (Tailwind)
    -------------------------- */
-function IconButton({ children, onClick, className }: any) {
+function SmallBtn({ children, onClick, className }: any) {
   return (
     <button
       onClick={onClick}
       className={
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition " +
-        "bg-white/5 hover:bg-white/10 " +
+        "px-3 py-1.5 rounded-md text-sm font-medium transition " +
+        "bg-white/90 hover:bg-white " +
         (className || "")
       }
     >
@@ -23,13 +29,13 @@ function IconButton({ children, onClick, className }: any) {
   );
 }
 
-function PrimaryButton({ children, onClick, className }: any) {
+function PrimaryBtn({ children, onClick, className }: any) {
   return (
     <button
       onClick={onClick}
       className={
-        "px-4 py-2 rounded-md text-sm font-semibold shadow-sm transition " +
-        "bg-orange-600 hover:bg-orange-700 text-white " +
+        "px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition " +
+        "bg-sky-600 hover:bg-sky-700 text-white " +
         (className || "")
       }
     >
@@ -40,32 +46,49 @@ function PrimaryButton({ children, onClick, className }: any) {
 
 function Card({ children, className }: any) {
   return (
-    <div className={"bg-white rounded-lg border border-gray-200 " + (className || "")}>
+    <div
+      className={
+        "bg-white shadow-sm rounded-lg border border-gray-100 overflow-hidden " +
+        (className || "")
+      }
+    >
       {children}
     </div>
   );
 }
 
+function CardBody({ children, className }: any) {
+  return <div className={"p-4 " + (className || "")}>{children}</div>;
+}
+
 /* --------------------------
-   타입 (단순화)
-   실제 DB 스키마에 따라 확장하세요.
-   news_posts 테이블에 category 컬럼이 있어야 함.
+   타입
    -------------------------- */
-type Post = {
+type Review = {
   id: number;
   title: string;
   content: string;
-  category?: string;
-  image_url?: string;
+  rating?: number;
+  like_count?: number;
+  author_name?: string;
   created_at?: string;
 };
 
-type Release = {
+type CommunityPost = {
   id: number;
   title: string;
-  cover_url?: string;
-  release_date?: string;
-  platform?: string;
+  excerpt?: string;
+  author_name?: string;
+  like_count?: number;
+  created_at?: string;
+};
+
+type NewsPost = {
+  id: number;
+  title: string;
+  category?: string;
+  image_url?: string;
+  created_at?: string;
 };
 
 /* --------------------------
@@ -74,119 +97,131 @@ type Release = {
 export default function HomePage() {
   const router = useRouter();
 
-  // 유저 세션 (로그인 상태)
   const [user, setUser] = useState<any>(null);
 
-  // 뉴스 / 필터 / 검색
-  const [news, setNews] = useState<Post[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>("all");
-  const [q, setQ] = useState<string>("");
+  const [latestReviews, setLatestReviews] = useState<Review[]>([]);
+  const [topReviews, setTopReviews] = useState<Review[]>([]);
+  const [latestCommunity, setLatestCommunity] = useState<CommunityPost[]>([]);
+  const [topCommunity, setTopCommunity] = useState<CommunityPost[]>([]);
+  const [news, setNews] = useState<NewsPost[]>([]);
+  const [activeNewsCategory, setActiveNewsCategory] = useState<string>("all");
 
-  // 출시작 샘플
-  const [releases, setReleases] = useState<Release[]>([]);
-
-  // 가능한 카테고리 — 필요하면 DB에서 동적으로 가져오도록 변경 가능
-  const CATEGORIES = useMemo(
-    () => [
-      { key: "all", label: "전체" },
-      { key: "popular", label: "인기" },
-      { key: "industry", label: "업계 동향" },
-      { key: "pc", label: "PC" },
-      { key: "console", label: "콘솔" },
-      { key: "mobile", label: "모바일" },
-      { key: "esports", label: "e스포츠" },
-    ],
+  const NEWS_CATEGORIES = useMemo(
+    () => ["all", "industry", "pc", "console", "mobile", "esports", "hot"],
     []
   );
 
+  // 세션
   useEffect(() => {
-    // 유저 세션 확인
     const check = async () => {
       const { data } = await supabase.auth.getSession();
-      setUser(data.session?.user ?? null);
+      setUser(data?.session?.user ?? null);
     };
     check();
   }, []);
 
+  // 데이터 로드
   useEffect(() => {
-    // 뉴스 로드 (category 컬럼이 있는 news_posts 테이블 가정)
-    const fetchNews = async () => {
-      const { data, error } = await supabase
+    const load = async () => {
+      const latestRev = await supabase
+        .from("reviews")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (!latestRev.error) setLatestReviews(latestRev.data as Review[]);
+
+      const topRev = await supabase
+        .from("reviews")
+        .select("*")
+        .order("like_count", { ascending: false })
+        .limit(6);
+      if (!topRev.error) setTopReviews(topRev.data as Review[]);
+
+      const latestCom = await supabase
+        .from("community_posts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (!latestCom.error) setLatestCommunity(latestCom.data as CommunityPost[]);
+
+      const topCom = await supabase
+        .from("community_posts")
+        .select("*")
+        .order("like_count", { ascending: false })
+        .limit(6);
+      if (!topCom.error) setTopCommunity(topCom.data as CommunityPost[]);
+
+      const n = await supabase
         .from("news_posts")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200);
-      if (error) {
-        console.error("news load error:", error);
-        setNews([]);
-      } else {
-        setNews((data ?? []) as Post[]);
-      }
+      if (!n.error) setNews(n.data as NewsPost[]);
     };
-    fetchNews();
 
-    // 샘플 출시작
-    setReleases([
-      { id: 1, title: "신작 RPG A", cover_url: "/images/release1.jpg", release_date: "2025-11-10", platform: "PC" },
-      { id: 2, title: "FPS B", cover_url: "/images/release2.jpg", release_date: "2025-11-15", platform: "Console" },
-      { id: 3, title: "모바일 RPG C", cover_url: "/images/release3.jpg", release_date: "2025-11-20", platform: "Mobile" },
-    ]);
+    load();
   }, []);
 
-  // 카테고리 + 검색 적용된 뉴스 리스트
-  const filtered = useMemo(() => {
-    const qLower = q.trim().toLowerCase();
-    return news.filter((p) => {
-      if (activeCategory !== "all") {
-        if ((p.category ?? "").toLowerCase() !== activeCategory) return false;
-      }
-      if (!qLower) return true;
-      return (
-        (p.title ?? "").toLowerCase().includes(qLower) ||
-        (p.content ?? "").toLowerCase().includes(qLower)
-      );
-    });
-  }, [news, activeCategory, q]);
+  const filteredNews = useMemo(() => {
+    if (activeNewsCategory === "all") return news;
+    return news.filter(
+      (n) => (n.category ?? "").toLowerCase() === activeNewsCategory.toLowerCase()
+    );
+  }, [news, activeNewsCategory]);
 
   /* --------------------------
-     UI 반환
+     UI 렌더링
      -------------------------- */
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-[#F4F3FF] text-gray-900">
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <button className="text-2xl font-extrabold text-orange-600" onClick={() => router.push("/")}>
+            <button
+              onClick={() => router.push("/")}
+              className="text-2xl font-extrabold text-purple-600 hover:text-sky-600"
+            >
               GameVerse
             </button>
 
-            {/* 검색바 (간단) */}
-            <div className="hidden md:flex items-center bg-white border border-gray-200 rounded-md shadow-sm">
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="뉴스/키워드 검색 (예: 업데이트, 리뷰, 할인)"
-                className="px-3 py-2 w-72 outline-none text-sm"
-              />
-              <button className="px-3 border-l border-gray-200 text-sm text-gray-600" onClick={() => {}}>
-                검색
+            <nav className="hidden md:flex gap-4 text-sm text-gray-700">
+              <button onClick={() => router.push("/review")} className="px-2 py-1 rounded-md hover:bg-white">
+                평론
               </button>
-            </div>
+              <button onClick={() => router.push("/community")} className="px-2 py-1 rounded-md hover:bg-white">
+                커뮤니티
+              </button>
+              <button onClick={() => router.push("/recommend")} className="px-2 py-1 rounded-md hover:bg-white">
+                AI 추천
+              </button>
+              <button onClick={() => router.push("/news")} className="px-2 py-1 rounded-md hover:bg-white">
+                뉴스
+              </button>
+            </nav>
           </div>
 
-          <nav className="flex items-center gap-4">
-            <div className="hidden sm:flex gap-4">
-              <button className="text-sm text-gray-700 hover:text-orange-600" onClick={() => router.push("/community")}>커뮤니티</button>
-              <button className="text-sm text-gray-700 hover:text-orange-600" onClick={() => router.push("/review")}>평론</button>
-              <button className="text-sm text-gray-700 hover:text-orange-600" onClick={() => router.push("/recommend")}>추천</button>
+          <div className="flex items-center gap-3">
+            {/* 검색 */}
+            <div className="hidden sm:flex items-center bg-white border border-gray-200 rounded-md shadow-sm px-2">
+              <input
+                placeholder="평론 / 게시글 / 게임 검색"
+                className="outline-none text-sm px-2 py-1 w-56"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    router.push(`/search?q=${encodeURIComponent(
+                      (e.target as HTMLInputElement).value
+                    )}`);
+                  }
+                }}
+              />
+              <button className="text-sm text-gray-500 px-2">검색</button>
             </div>
 
-            {/* 로그인 상태 표시 */}
             {user ? (
               <>
-                <IconButton onClick={() => router.push("/mypage")}>내정보</IconButton>
-                <IconButton
+                <SmallBtn onClick={() => router.push("/mypage")}>내정보</SmallBtn>
+                <SmallBtn
                   onClick={async () => {
                     await supabase.auth.signOut();
                     setUser(null);
@@ -194,157 +229,303 @@ export default function HomePage() {
                   }}
                 >
                   로그아웃
-                </IconButton>
+                </SmallBtn>
               </>
             ) : (
               <>
-                <IconButton onClick={() => router.push("/auth")}>로그인</IconButton>
-                <PrimaryButton onClick={() => router.push("/auth?mode=signup")}>회원가입</PrimaryButton>
+                <SmallBtn onClick={() => router.push("/auth")}>로그인</SmallBtn>
+                <PrimaryBtn onClick={() => router.push("/auth?mode=signup")}>회원가입</PrimaryBtn>
               </>
             )}
-          </nav>
+          </div>
         </div>
       </header>
 
-      {/* Hero / Category Tabs */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="rounded-lg bg-gradient-to-r from-orange-50 to-white p-6 flex flex-col md:flex-row gap-6 md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900">게임 뉴스 & 커뮤니티 허브</h1>
-            <p className="mt-2 text-gray-600 max-w-2xl">업데이트, 신작, e스ports, 업계 동향 등 게임 관련 모든 정보를 한 곳에서.</p>
-          </div>
-          <div className="flex gap-3 items-center">
-            <PrimaryButton onClick={() => router.push("/recommend")}>AI 추천 받기</PrimaryButton>
-            <button className="text-sm text-gray-600">· 최근 트렌드 보기</button>
-          </div>
-        </div>
+      {/* HERO */}
+      <section className="max-w-7xl mx-auto px-6 pt-8 pb-6">
+        <div className="rounded-xl p-8 bg-gradient-to-r from-[#F4F3FF] to-white border border-gray-100 flex flex-col md:flex-row items-center gap-6">
+          <div className="flex-1">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
+              게임 평론과 커뮤니티가 만나는 곳
+            </h1>
 
-        {/* 카테고리 탭 */}
-        <div className="mt-6 flex gap-3 overflow-x-auto pb-2">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.key}
-              onClick={() => setActiveCategory(c.key)}
-              className={
-                "whitespace-nowrap px-3 py-1.5 rounded-md text-sm font-medium border " +
-                (activeCategory === c.key
-                  ? "bg-orange-600 text-white border-orange-600"
-                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50")
-              }
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-      </div>
+            <p className="mt-3 text-gray-600 max-w-2xl">
+              좋아하는 게임을 분석하고 추천받고, 평론을 남기고 토론하세요.
+            </p>
 
-      {/* Main Grid: Left = 뉴스 / Right = 사이드바 */}
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
-        {/* 뉴스 리스트 (메인) */}
-        <section className="lg:col-span-3 space-y-6">
-          {/* 필터 요약 */}
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              <span className="font-medium">{filtered.length}</span>개의 기사 ·
-              <span className="ml-2">카테고리: <span className="font-semibold">{CATEGORIES.find(x=>x.key===activeCategory)?.label}</span></span>
+            <div className="mt-6 flex gap-3">
+              <PrimaryBtn onClick={() => router.push("/review")}>평론 바로보기</PrimaryBtn>
+
+              {/* ➜ 여기! 추천 버튼 추가 */}
+              <PrimaryBtn onClick={() => router.push("/recommend")} className="bg-purple-600 hover:bg-purple-700">
+                추천 보기
+              </PrimaryBtn>
+
+              <button
+                onClick={() => router.push("/community")}
+                className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-white"
+              >
+                커뮤니티로 이동
+              </button>
             </div>
-            <div className="text-sm text-gray-500">최신 순 정렬</div>
           </div>
 
-          {/* 뉴스 카드 그리드 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {filtered.slice(0, 12).map((p) => (
-              <article key={p.id} className="group">
-                <Card className="overflow-hidden hover:shadow-lg transition cursor-pointer" >
-                  <div className="flex flex-col sm:flex-row">
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.title} className="w-full sm:w-40 h-32 object-cover sm:object-center"/>
-                    ) : (
-                      <div className="w-full sm:w-40 h-32 bg-gray-100 flex items-center justify-center text-gray-400">No Image</div>
-                    )}
-                    <div className="p-4 flex-1">
-                      <h3
-                        onClick={() => router.push(`/news/${p.id}`)}
-                        className="text-lg font-semibold text-gray-900 group-hover:text-orange-600"
-                      >
-                        {p.title}
-                      </h3>
-                      <p className="mt-2 text-sm text-gray-600 line-clamp-2">{p.content}</p>
-                      <div className="mt-3 text-xs text-gray-400">{p.created_at ? new Date(p.created_at).toLocaleString() : ""}</div>
-                    </div>
-                  </div>
-                </Card>
-              </article>
-            ))}
+          <div className="w-full md:w-80">
+            <Card className="bg-gradient-to-b from-white to-[#F9F8FF] border border-gray-100">
+              <CardBody>
+                <div className="text-sm text-gray-600">오늘의 추천 평론</div>
+                <h3 className="mt-2 text-lg font-semibold text-purple-600">“이번 달의 심층 분석 — RPG A”</h3>
+                <p className="mt-2 text-sm text-gray-700 line-clamp-3">
+                  플레이 메카닉부터 이야기 구성까지, 깊이 있게 분석한 평론을 확인하세요.
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <SmallBtn onClick={() => router.push("/review/featured")}>자세히 보기</SmallBtn>
+                  <SmallBtn onClick={() => router.push("/recommend")}>비슷한 게임 추천</SmallBtn>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* GRID */}
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 pb-16">
+        {/* 평론 영역 */}
+        <section className="lg:col-span-7 space-y-6">
+          {/* 추천 많은 평론 */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-2xl font-bold text-gray-900">⭐ 추천 많은 평론</h2>
+              <div className="text-sm text-gray-500">독자 추천 기준 상위</div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {topReviews.length > 0
+                ? topReviews.map((r) => (
+                    <Card
+                      key={r.id}
+                      className="hover:shadow-md cursor-pointer"
+                      onClick={() => router.push(`/review/${r.id}`)}
+                    >
+                      <CardBody>
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-gray-500">
+                            👍 {r.like_count ?? 0} · {r.rating ? `평점 ${r.rating}` : ""}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
+                          </div>
+                        </div>
+                        <h3 className="mt-2 font-semibold text-purple-600 text-lg">{r.title}</h3>
+                        <p className="mt-2 text-sm text-gray-700 line-clamp-3">{r.content}</p>
+                      </CardBody>
+                    </Card>
+                  ))
+                : [1, 2, 3].map((i) => (
+                    <Card key={i}>
+                      <CardBody>
+                        <div className="text-sm text-gray-500">추천 많은 평론 자리</div>
+                        <div className="mt-2 font-semibold text-gray-900">평론 제목 {i}</div>
+                      </CardBody>
+                    </Card>
+                  ))}
+            </div>
           </div>
 
-          {/* 페이징 / 더보기 버튼 */}
-          <div className="flex justify-center">
-            <button
-              onClick={() => alert("페이지네이션/무한스크롤을 추가하세요")}
-              className="px-4 py-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-            >
-              더 많은 기사 보기
-            </button>
+          {/* 최신 평론 */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-2xl font-bold text-gray-900">✨ 최신 평론</h2>
+              <div className="text-sm text-gray-500">최신 순</div>
+            </div>
+
+            <div className="space-y-3">
+              {latestReviews.length > 0
+                ? latestReviews.map((r) => (
+                    <Card
+                      key={r.id}
+                      className="hover:shadow-md cursor-pointer"
+                      onClick={() => router.push(`/review/${r.id}`)}
+                    >
+                      <CardBody>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{r.title}</h4>
+                            <p className="text-sm text-gray-700 mt-1 line-clamp-2">{r.content}</p>
+                            <div className="text-xs text-gray-400 mt-2">
+                              {r.author_name ?? "익명"} ·{" "}
+                              {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
+                            </div>
+                          </div>
+
+                          <div className="w-28 text-right">
+                            <div className="text-sm font-medium text-purple-600">
+                              {r.like_count ?? 0} 추천
+                            </div>
+                            {r.rating && <div className="text-xs text-gray-400 mt-2">평점 {r.rating}</div>}
+                          </div>
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ))
+                : "최근 평론이 없습니다."}
+            </div>
           </div>
         </section>
 
-        {/* 사이드바 */}
-        <aside className="space-y-6">
-          {/* 로그인 카드 */}
-          <Card className="p-4">
-            {user ? (
-              <div>
-                <div className="text-sm text-gray-600">안녕하세요,</div>
-                <div className="mt-2 font-semibold text-gray-900">{user.email ?? user.user_metadata?.full_name ?? "회원"}</div>
-                <div className="mt-4 flex gap-2">
-                  <IconButton onClick={() => router.push("/mypage")}>마이페이지</IconButton>
-                  <IconButton onClick={async () => { await supabase.auth.signOut(); setUser(null); router.refresh(); }}>로그아웃</IconButton>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="text-sm text-gray-600">커뮤니티에 참여하려면 로그인하세요</div>
-                <div className="flex gap-2">
-                  <IconButton onClick={() => router.push("/auth")}>로그인</IconButton>
-                  <PrimaryButton onClick={() => router.push("/auth?mode=signup")}>회원가입</PrimaryButton>
-                </div>
-              </div>
-            )}
-          </Card>
+        {/* 오른쪽 영역 (커뮤니티 + 뉴스) */}
+        <aside className="lg:col-span-5 space-y-6">
+          {/* 추천 많은 커뮤니티 */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xl font-bold text-gray-900">🔥 추천 많은 게시글</h3>
+              <div className="text-sm text-gray-500">커뮤니티 인기글</div>
+            </div>
 
-          {/* 신작 / 추천 */}
-          <Card className="p-4">
-            <h4 className="text-sm font-semibold text-gray-900 mb-3">이번 달 신작</h4>
             <div className="space-y-3">
-              {releases.map((r) => (
-                <div key={r.id} className="flex items-center gap-3">
-                  <img src={r.cover_url} alt={r.title} className="w-12 h-12 rounded-md object-cover"/>
-                  <div className="flex-1 text-sm">
-                    <div className="font-medium text-gray-900">{r.title}</div>
-                    <div className="text-xs text-gray-500">{r.platform} · {r.release_date}</div>
-                  </div>
-                </div>
+              {topCommunity.length > 0
+                ? topCommunity.map((p) => (
+                    <Card
+                      key={p.id}
+                      className="hover:shadow-md cursor-pointer"
+                      onClick={() => router.push(`/community/${p.id}`)}
+                    >
+                      <CardBody>
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-gray-900">{p.title}</div>
+                          <div className="text-xs text-gray-400">♥ {p.like_count ?? 0}</div>
+                        </div>
+                        <div className="text-xs text-gray-400 mt-2">
+                          {p.author_name ?? "익명"} ·{" "}
+                          {p.created_at ? new Date(p.created_at).toLocaleDateString() : ""}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  ))
+                : "인기 게시글이 없습니다."}
+            </div>
+          </div>
+
+          {/* 최신 커뮤니티 */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xl font-bold text-gray-900">📰 최신 커뮤니티 글</h3>
+              <div className="text-sm text-gray-500">실시간</div>
+            </div>
+
+            <div className="space-y-2 max-h-72 overflow-auto pr-2">
+              {latestCommunity.length > 0
+                ? latestCommunity.map((p) => (
+                    <div
+                      key={p.id}
+                      className="flex items-start justify-between gap-2 bg-white rounded-md p-3 border border-gray-100 hover:shadow-sm cursor-pointer"
+                      onClick={() => router.push(`/community/${p.id}`)}
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{p.title}</div>
+                        <div className="text-xs text-gray-400">
+                          {p.author_name ?? "익명"} ·{" "}
+                          {p.created_at ? new Date(p.created_at).toLocaleDateString() : ""}
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-500">♥ {p.like_count ?? 0}</div>
+                    </div>
+                  ))
+                : "게시글 없음"}
+            </div>
+          </div>
+
+          {/* 뉴스 */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xl font-bold text-gray-900">🗞 뉴스</h3>
+              <div className="text-sm text-gray-500">카테고리</div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-3">
+              {NEWS_CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setActiveNewsCategory(c)}
+                  className={`px-2 py-1 rounded-md text-xs border ${
+                    activeNewsCategory === c
+                      ? "bg-purple-600 text-white border-purple-600"
+                      : "bg-white text-gray-700 border-gray-200"
+                  }`}
+                >
+                  {c === "all" ? "전체" : c.toUpperCase()}
+                </button>
               ))}
             </div>
-          </Card>
 
-          {/* 인기 커뮤니티 (간단) */}
-          <Card className="p-4">
-            <h4 className="text-sm font-semibold text-gray-900 mb-3">인기 커뮤니티</h4>
-            <ul className="space-y-2 text-sm">
-              <li><a className="text-gray-700 hover:text-orange-600 cursor-pointer" onClick={() => router.push("/community/메이플")}>메이플스토리 게시판</a></li>
-              <li><a className="text-gray-700 hover:text-orange-600 cursor-pointer" onClick={() => router.push("/community/디아블로4")}>디아블로4 토론</a></li>
-              <li><a className="text-gray-700 hover:text-orange-600 cursor-pointer" onClick={() => router.push("/community/인디")}>인디게임</a></li>
-            </ul>
-          </Card>
+            <div className="space-y-3 max-h-64 overflow-auto pr-2">
+              {filteredNews.length > 0
+                ? filteredNews.slice(0, 8).map((n) => (
+                    <div
+                      key={n.id}
+                      className="flex items-start gap-3 border rounded-md bg-white p-3 border-gray-100 hover:shadow-sm cursor-pointer"
+                      onClick={() => router.push(`/news/${n.id}`)}
+                    >
+                      <div className="w-16 h-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                        {n.image_url ? (
+                          <img
+                            src={n.image_url}
+                            alt={n.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
+                            No Img
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900 text-sm">{n.title}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {n.category ?? "일반"} ·{" "}
+                          {n.created_at ? new Date(n.created_at).toLocaleDateString() : ""}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                : "뉴스 없음"}
+            </div>
+          </div>
         </aside>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-200 py-8">
-        <div className="max-w-7xl mx-auto px-6 text-center text-sm text-gray-500">
-          © 2025 GameVerse · 문의: team@example.com · 이용약관 · 개인정보처리방침
+      {/* FOOTER */}
+      <footer className="border-t border-gray-200 bg-white mt-8">
+        <div className="max-w-7xl mx-auto px-6 py-8 text-sm text-gray-600 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <div className="font-semibold text-gray-900 mb-2">GameVerse</div>
+            <div>전문가 수준의 평론과 활발한 커뮤니티 플랫폼.</div>
+          </div>
+
+          <div>
+            <div className="font-semibold text-gray-900 mb-2">서비스</div>
+            <div className="flex flex-col gap-1">
+              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/review")}>
+                평론
+              </a>
+              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/community")}>
+                커뮤니티
+              </a>
+              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/recommend")}>
+                추천
+              </a>
+              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/news")}>
+                뉴스
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <div className="font-semibold text-gray-900 mb-2">문의</div>
+            <div>team@example.com</div>
+            <div className="text-xs text-gray-400 mt-2">© 2025 GameVerse · 모든 권리 보유</div>
+          </div>
         </div>
       </footer>
     </div>
