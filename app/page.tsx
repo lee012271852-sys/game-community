@@ -4,15 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
 
-/**
- * GameVerse — 평론 & 커뮤니티 메인 (연보라 / 하늘색 계열)
- *
- * - 블록: 추천 많은 평론 / 최신 평론 / 추천 많은 커뮤니티 / 최신 커뮤니티 / 뉴스
- * - Supabase 테이블: reviews, community_posts, news_posts (필수 컬럼: created_at, like_count, category 등)
- */
-
 /* --------------------------
-   간단 UI 컴포넌트 (Tailwind)
+   간단 UI 컴포넌트
    -------------------------- */
 function SmallBtn({ children, onClick, className }: any) {
   return (
@@ -111,7 +104,7 @@ export default function HomePage() {
     []
   );
 
-  // 세션
+  /* 로그인 확인 */
   useEffect(() => {
     const check = async () => {
       const { data } = await supabase.auth.getSession();
@@ -120,7 +113,7 @@ export default function HomePage() {
     check();
   }, []);
 
-  // 데이터 로드
+  /* 데이터 로드 */
   useEffect(() => {
     const load = async () => {
       const latestRev = await supabase
@@ -186,38 +179,22 @@ export default function HomePage() {
             </button>
 
             <nav className="hidden md:flex gap-4 text-sm text-gray-700">
-              <button onClick={() => router.push("/review")} className="px-2 py-1 rounded-md hover:bg-white">
+              <button onClick={() => router.push("/review")} className="px-2 py-1 hover:bg-white">
                 평론
               </button>
-              <button onClick={() => router.push("/community")} className="px-2 py-1 rounded-md hover:bg-white">
+              <button onClick={() => router.push("/community")} className="px-2 py-1 hover:bg-white">
                 커뮤니티
               </button>
-              <button onClick={() => router.push("/recommend")} className="px-2 py-1 rounded-md hover:bg-white">
+              <button onClick={() => router.push("/recommend")} className="px-2 py-1 hover:bg-white">
                 AI 추천
               </button>
-              <button onClick={() => router.push("/news")} className="px-2 py-1 rounded-md hover:bg-white">
+              <button onClick={() => router.push("/news")} className="px-2 py-1 hover:bg-white">
                 뉴스
               </button>
             </nav>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* 검색 */}
-            <div className="hidden sm:flex items-center bg-white border border-gray-200 rounded-md shadow-sm px-2">
-              <input
-                placeholder="평론 / 게시글 / 게임 검색"
-                className="outline-none text-sm px-2 py-1 w-56"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    router.push(`/search?q=${encodeURIComponent(
-                      (e.target as HTMLInputElement).value
-                    )}`);
-                  }
-                }}
-              />
-              <button className="text-sm text-gray-500 px-2">검색</button>
-            </div>
-
             {user ? (
               <>
                 <SmallBtn onClick={() => router.push("/mypage")}>내정보</SmallBtn>
@@ -234,61 +211,33 @@ export default function HomePage() {
             ) : (
               <>
                 <SmallBtn onClick={() => router.push("/auth")}>로그인</SmallBtn>
-                <PrimaryBtn onClick={() => router.push("/auth?mode=signup")}>회원가입</PrimaryBtn>
+                <PrimaryBtn onClick={() => router.push("/auth?mode=signup")}>
+                  회원가입
+                </PrimaryBtn>
               </>
             )}
           </div>
         </div>
       </header>
 
-      {/* HERO */}
-      <section className="max-w-7xl mx-auto px-6 pt-8 pb-6">
-        <div className="rounded-xl p-8 bg-gradient-to-r from-[#F4F3FF] to-white border border-gray-100 flex flex-col md:flex-row items-center gap-6">
-          <div className="flex-1">
-            <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
-              게임 평론과 커뮤니티가 만나는 곳
-            </h1>
-
-            <p className="mt-3 text-gray-600 max-w-2xl">
-              좋아하는 게임을 분석하고 추천받고, 평론을 남기고 토론하세요.
-            </p>
-
-            <div className="mt-6 flex gap-3">
-              <PrimaryBtn onClick={() => router.push("/review")}>평론 바로보기</PrimaryBtn>
-
-              {/* ➜ 여기! 추천 버튼 추가 */}
-              <PrimaryBtn onClick={() => router.push("/recommend")} className="bg-purple-600 hover:bg-purple-700">
-                추천 보기
-              </PrimaryBtn>
-
-              <button
-                onClick={() => router.push("/community")}
-                className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-white"
-              >
-                커뮤니티로 이동
-              </button>
-            </div>
+      {/* ------------------------------
+          HERO → 뉴스 배너 (개발 중)
+      ------------------------------ */}
+      <section className="max-w-7xl mx-auto px-6 pt-10 pb-8">
+        <div className="w-full bg-white border border-gray-200 rounded-xl shadow-sm p-10 flex flex-col items-center justify-center">
+          <div className="text-4xl font-extrabold text-purple-700 mb-4">
+            📰 뉴스 영역 준비 중
           </div>
-
-          <div className="w-full md:w-80">
-            <Card className="bg-gradient-to-b from-white to-[#F9F8FF] border border-gray-100">
-              <CardBody>
-                <div className="text-sm text-gray-600">오늘의 추천 평론</div>
-                <h3 className="mt-2 text-lg font-semibold text-purple-600">“이번 달의 심층 분석 — RPG A”</h3>
-                <p className="mt-2 text-sm text-gray-700 line-clamp-3">
-                  플레이 메카닉부터 이야기 구성까지, 깊이 있게 분석한 평론을 확인하세요.
-                </p>
-                <div className="mt-4 flex gap-2">
-                  <SmallBtn onClick={() => router.push("/review/featured")}>자세히 보기</SmallBtn>
-                  <SmallBtn onClick={() => router.push("/recommend")}>비슷한 게임 추천</SmallBtn>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
+          <p className="text-gray-600 text-center text-lg">
+            현재 뉴스 모듈을 개발하고 있습니다.  
+          </p>
         </div>
       </section>
 
-      {/* GRID */}
+      {/* ------------------------------
+          이하: 평론 / 커뮤니티 / 뉴스
+      ------------------------------ */}
+
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 pb-16">
         {/* 평론 영역 */}
         <section className="lg:col-span-7 space-y-6">
@@ -296,7 +245,6 @@ export default function HomePage() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-2xl font-bold text-gray-900">⭐ 추천 많은 평론</h2>
-              <div className="text-sm text-gray-500">독자 추천 기준 상위</div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -308,36 +256,22 @@ export default function HomePage() {
                       onClick={() => router.push(`/review/${r.id}`)}
                     >
                       <CardBody>
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm text-gray-500">
-                            👍 {r.like_count ?? 0} · {r.rating ? `평점 ${r.rating}` : ""}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
-                          </div>
+                        <div className="text-sm text-gray-500">
+                          👍 {r.like_count ?? 0}
                         </div>
-                        <h3 className="mt-2 font-semibold text-purple-600 text-lg">{r.title}</h3>
-                        <p className="mt-2 text-sm text-gray-700 line-clamp-3">{r.content}</p>
+                        <h3 className="mt-2 font-semibold text-purple-600 text-lg">
+                          {r.title}
+                        </h3>
                       </CardBody>
                     </Card>
                   ))
-                : [1, 2, 3].map((i) => (
-                    <Card key={i}>
-                      <CardBody>
-                        <div className="text-sm text-gray-500">추천 많은 평론 자리</div>
-                        <div className="mt-2 font-semibold text-gray-900">평론 제목 {i}</div>
-                      </CardBody>
-                    </Card>
-                  ))}
+                : "평론 없음"}
             </div>
           </div>
 
           {/* 최신 평론 */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-2xl font-bold text-gray-900">✨ 최신 평론</h2>
-              <div className="text-sm text-gray-500">최신 순</div>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-3">✨ 최신 평론</h2>
 
             <div className="space-y-3">
               {latestReviews.length > 0
@@ -348,40 +282,23 @@ export default function HomePage() {
                       onClick={() => router.push(`/review/${r.id}`)}
                     >
                       <CardBody>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900">{r.title}</h4>
-                            <p className="text-sm text-gray-700 mt-1 line-clamp-2">{r.content}</p>
-                            <div className="text-xs text-gray-400 mt-2">
-                              {r.author_name ?? "익명"} ·{" "}
-                              {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
-                            </div>
-                          </div>
-
-                          <div className="w-28 text-right">
-                            <div className="text-sm font-medium text-purple-600">
-                              {r.like_count ?? 0} 추천
-                            </div>
-                            {r.rating && <div className="text-xs text-gray-400 mt-2">평점 {r.rating}</div>}
-                          </div>
-                        </div>
+                        <h4 className="font-semibold">{r.title}</h4>
+                        <p className="text-sm text-gray-700 mt-1 line-clamp-2">
+                          {r.content}
+                        </p>
                       </CardBody>
                     </Card>
                   ))
-                : "최근 평론이 없습니다."}
+                : "최근 평론 없음"}
             </div>
           </div>
         </section>
 
-        {/* 오른쪽 영역 (커뮤니티 + 뉴스) */}
+        {/* 오른쪽 사이드: 커뮤니티 + 뉴스 */}
         <aside className="lg:col-span-5 space-y-6">
           {/* 추천 많은 커뮤니티 */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-bold text-gray-900">🔥 추천 많은 게시글</h3>
-              <div className="text-sm text-gray-500">커뮤니티 인기글</div>
-            </div>
-
+            <h3 className="text-xl font-bold text-gray-900 mb-3">🔥 추천 많은 게시글</h3>
             <div className="space-y-3">
               {topCommunity.length > 0
                 ? topCommunity.map((p) => (
@@ -391,43 +308,29 @@ export default function HomePage() {
                       onClick={() => router.push(`/community/${p.id}`)}
                     >
                       <CardBody>
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium text-gray-900">{p.title}</div>
-                          <div className="text-xs text-gray-400">♥ {p.like_count ?? 0}</div>
-                        </div>
-                        <div className="text-xs text-gray-400 mt-2">
-                          {p.author_name ?? "익명"} ·{" "}
-                          {p.created_at ? new Date(p.created_at).toLocaleDateString() : ""}
+                        <div className="font-medium">{p.title}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          ♥ {p.like_count ?? 0}
                         </div>
                       </CardBody>
                     </Card>
                   ))
-                : "인기 게시글이 없습니다."}
+                : "인기 게시글 없음"}
             </div>
           </div>
 
           {/* 최신 커뮤니티 */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-bold text-gray-900">📰 최신 커뮤니티 글</h3>
-              <div className="text-sm text-gray-500">실시간</div>
-            </div>
-
+            <h3 className="text-xl font-bold text-gray-900 mb-3">📝 최신 커뮤니티 글</h3>
             <div className="space-y-2 max-h-72 overflow-auto pr-2">
               {latestCommunity.length > 0
                 ? latestCommunity.map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-start justify-between gap-2 bg-white rounded-md p-3 border border-gray-100 hover:shadow-sm cursor-pointer"
+                      className="flex items-start justify-between gap-2 bg-white rounded-md p-3 border hover:shadow-sm cursor-pointer"
                       onClick={() => router.push(`/community/${p.id}`)}
                     >
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{p.title}</div>
-                        <div className="text-xs text-gray-400">
-                          {p.author_name ?? "익명"} ·{" "}
-                          {p.created_at ? new Date(p.created_at).toLocaleDateString() : ""}
-                        </div>
-                      </div>
+                      <div className="font-medium text-gray-900">{p.title}</div>
                       <div className="text-sm text-gray-500">♥ {p.like_count ?? 0}</div>
                     </div>
                   ))
@@ -435,21 +338,18 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 뉴스 */}
+          {/* 뉴스 영역 */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xl font-bold text-gray-900">🗞 뉴스</h3>
-              <div className="text-sm text-gray-500">카테고리</div>
-            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-3">🗞 뉴스</h3>
 
             <div className="flex flex-wrap gap-2 mb-3">
               {NEWS_CATEGORIES.map((c) => (
                 <button
                   key={c}
                   onClick={() => setActiveNewsCategory(c)}
-                  className={`px-2 py-1 rounded-md text-xs border ${
+                  className={`px-2 py-1 text-xs rounded-md border ${
                     activeNewsCategory === c
-                      ? "bg-purple-600 text-white border-purple-600"
+                      ? "bg-purple-600 text-white"
                       : "bg-white text-gray-700 border-gray-200"
                   }`}
                 >
@@ -463,29 +363,14 @@ export default function HomePage() {
                 ? filteredNews.slice(0, 8).map((n) => (
                     <div
                       key={n.id}
-                      className="flex items-start gap-3 border rounded-md bg-white p-3 border-gray-100 hover:shadow-sm cursor-pointer"
+                      className="bg-white border rounded-md p-3 hover:shadow cursor-pointer"
                       onClick={() => router.push(`/news/${n.id}`)}
                     >
-                      <div className="w-16 h-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
-                        {n.image_url ? (
-                          <img
-                            src={n.image_url}
-                            alt={n.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">
-                            No Img
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900 text-sm">{n.title}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {n.category ?? "일반"} ·{" "}
-                          {n.created_at ? new Date(n.created_at).toLocaleDateString() : ""}
-                        </div>
+                      <div className="font-medium text-gray-900 text-sm">{n.title}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {n.created_at
+                          ? new Date(n.created_at).toLocaleDateString()
+                          : ""}
                       </div>
                     </div>
                   ))
@@ -496,36 +381,9 @@ export default function HomePage() {
       </div>
 
       {/* FOOTER */}
-      <footer className="border-t border-gray-200 bg-white mt-8">
-        <div className="max-w-7xl mx-auto px-6 py-8 text-sm text-gray-600 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <div className="font-semibold text-gray-900 mb-2">GameVerse</div>
-            <div>전문가 수준의 평론과 활발한 커뮤니티 플랫폼.</div>
-          </div>
-
-          <div>
-            <div className="font-semibold text-gray-900 mb-2">서비스</div>
-            <div className="flex flex-col gap-1">
-              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/review")}>
-                평론
-              </a>
-              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/community")}>
-                커뮤니티
-              </a>
-              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/recommend")}>
-                추천
-              </a>
-              <a className="hover:text-purple-600 cursor-pointer" onClick={() => router.push("/news")}>
-                뉴스
-              </a>
-            </div>
-          </div>
-
-          <div>
-            <div className="font-semibold text-gray-900 mb-2">문의</div>
-            <div>team@example.com</div>
-            <div className="text-xs text-gray-400 mt-2">© 2025 GameVerse · 모든 권리 보유</div>
-          </div>
+      <footer className="border-t bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-8 text-sm text-gray-600">
+          © 2025 GameVerse
         </div>
       </footer>
     </div>

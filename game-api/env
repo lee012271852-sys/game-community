@@ -1,0 +1,9 @@
+# ==============================
+# Supabase 백엔드용 (Service Role Key)
+# ==============================
+SUPABASE_URL=https://hmcdcgenxmxyqajbispd.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtY2RjZ2VueG14eXFhamJpc3BkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjE3MTI1OCwiZXhwIjoyMDc3NzQ3MjU4fQ.w8V-t4Y2sx7J5LmL8QM0q-a6fkpkKz85Cd7JBe9Ooxw
+# ==============================
+# RapidAPI 키 (Metacritic API용)
+# ==============================
+RAPIDAPI_KEY=process.env.RAPIDAPI_KEY
