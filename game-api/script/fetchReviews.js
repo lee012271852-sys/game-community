@@ -81,6 +81,7 @@ async function main() {
     }
 
     // 차단 방지 딜레이
+    
     await new Promise(r => setTimeout(r, 1000));
   }
 

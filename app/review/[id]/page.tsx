@@ -49,10 +49,6 @@ export default function GameDetailPage() {
   const [myReview, setMyReview] = useState("");
   const [myRating, setMyRating] = useState(5);
 
-  // 게임 정보 수정용
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ title: "", description: "", image_url: "", categories: "" });
-
   // 리뷰 수정용
   const [editingReviewId, setEditingReviewId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -64,15 +60,6 @@ export default function GameDetailPage() {
       // 1. 게임 정보
       const { data: gameData } = await supabase.from("games").select("*").eq("id", gameId).single();
       setGame(gameData);
-
-      if (gameData) {
-        setEditForm({
-          title: gameData.title,
-          description: gameData.description || "",
-          image_url: gameData.image_url || "",
-          categories: gameData.categories ? gameData.categories.join(", ") : "",
-        });
-      }
 
       // 2. 유저 리뷰 목록
       const { data: reviewData } = await supabase
@@ -97,33 +84,6 @@ export default function GameDetailPage() {
   }, [gameId]);
 
   // --- 핸들러 함수들 ---
-
-  // 게임 정보 수정
-  const handleUpdateGame = async () => {
-    if (!confirm("게임 정보를 수정하시겠습니까?")) return;
-    const categoryArray = editForm.categories.split(",").map((c) => c.trim()).filter((c) => c !== "");
-
-    const { error } = await supabase
-      .from("games")
-      .update({
-        title: editForm.title,
-        description: editForm.description,
-        image_url: editForm.image_url,
-        categories: categoryArray,
-      })
-      .eq("id", gameId);
-
-    if (error) alert("수정 실패: " + error.message);
-    else window.location.reload();
-  };
-
-  // 게임 삭제
-  const handleDeleteGame = async () => {
-    if (!confirm("정말 이 게임을 삭제하시겠습니까? (되돌릴 수 없습니다)")) return;
-    const { error } = await supabase.from("games").delete().eq("id", gameId);
-    if (error) alert("삭제 실패: " + error.message);
-    else { alert("삭제되었습니다."); router.push("/review"); }
-  };
 
   // 리뷰 등록
   const handleSubmitReview = async () => {
@@ -180,77 +140,60 @@ export default function GameDetailPage() {
     <div className="min-h-screen bg-white text-gray-900">
       <div className="max-w-4xl mx-auto px-6 py-10">
         
-        {/* 관리자 컨트롤 패널 */}
-        {user && (
-          <div className="flex justify-end gap-2 mb-4">
-            {isEditing ? (
-              <>
-                <button onClick={handleUpdateGame} className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold">저장</button>
-                <button onClick={() => setIsEditing(false)} className="bg-gray-400 text-white px-4 py-2 rounded text-sm font-bold">취소</button>
-              </>
-            ) : (
-              <div className="flex gap-2">
-                <button onClick={() => setIsEditing(true)} className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded text-xs hover:bg-gray-200">✏️ 게임 수정</button>
-                <button onClick={handleDeleteGame} className="bg-red-50 text-red-500 px-3 py-1.5 rounded text-xs hover:bg-red-100">🗑️ 게임 삭제</button>
-              </div>
-            )}
-          </div>
-        )}
+        {/* 상단 뒤로가기 버튼 */}
+        <div className="mb-6">
+          <button 
+            onClick={() => router.back()} 
+            className="text-gray-500 hover:text-orange-600 text-sm flex items-center gap-1"
+          >
+            ← 목록으로 돌아가기
+          </button>
+        </div>
 
         {/* 게임 정보 섹션 */}
         <div className="flex flex-col md:flex-row gap-8 mb-12 border-b pb-10">
           <div className="w-full md:w-1/3 h-64 bg-gray-100 rounded-xl overflow-hidden shadow-md flex items-center justify-center">
-            {isEditing ? (
-               <input type="text" value={editForm.image_url} onChange={(e) => setEditForm({...editForm, image_url: e.target.value})} className="w-full m-4 border p-2 rounded" placeholder="이미지 URL" />
+            {game.image_url ? (
+              <img src={game.image_url} alt={game.title} className="w-full h-full object-cover" />
             ) : (
-              game.image_url ? <img src={game.image_url} alt={game.title} className="w-full h-full object-cover" /> : <span className="text-gray-400">이미지 없음</span>
+              <span className="text-gray-400">이미지 없음</span>
             )}
           </div>
 
           <div className="flex-1">
-            {isEditing ? (
-              <div className="space-y-3">
-                <input type="text" value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})} className="w-full text-2xl font-bold border p-2 rounded" placeholder="게임 제목" />
-                <textarea value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} className="w-full h-32 border p-2 rounded" placeholder="게임 설명" />
-                <input type="text" value={editForm.categories} onChange={(e) => setEditForm({...editForm, categories: e.target.value})} className="w-full border p-2 rounded" placeholder="태그 (쉼표로 구분)" />
-              </div>
-            ) : (
-              <>
-                <h1 className="text-4xl font-extrabold mb-4">{game.title}</h1>
-                
-                {/* 점수 뱃지 */}
-                <div className="flex gap-3 mb-6">
-                  {game.opencritic_score && game.opencritic_score > 0 && (
-                    <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">OpenCritic</span>
-                        <span className={`text-2xl font-black ${game.opencritic_score >= 84 ? "text-blue-600" : game.opencritic_score >= 75 ? "text-green-600" : "text-yellow-600"}`}>
-                          {game.opencritic_score}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {game.metacritic_score && game.metacritic_score > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Metacritic</span>
-                      <span className={`text-xl font-black ${game.metacritic_score >= 80 ? "text-green-600" : game.metacritic_score >= 60 ? "text-yellow-600" : "text-red-600"}`}>
-                        {game.metacritic_score}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-gray-600 text-lg leading-relaxed mb-4">{game.description}</p>
-                
-                <div className="flex flex-wrap gap-2">
-                  {game.categories?.map((c: string) => (
-                    <span key={c} className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-600 border border-gray-200">
-                      {GAME_CATEGORIES.find(cat => cat.slug === c)?.name || c}
+            <h1 className="text-4xl font-extrabold mb-4">{game.title}</h1>
+            
+            {/* 점수 뱃지 */}
+            <div className="flex gap-3 mb-6">
+              {game.opencritic_score && game.opencritic_score > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">OpenCritic</span>
+                    <span className={`text-2xl font-black ${game.opencritic_score >= 84 ? "text-blue-600" : game.opencritic_score >= 75 ? "text-green-600" : "text-yellow-600"}`}>
+                      {game.opencritic_score}
                     </span>
-                  ))}
+                  </div>
                 </div>
-              </>
-            )}
+              )}
+              {game.metacritic_score && game.metacritic_score > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">Metacritic</span>
+                  <span className={`text-xl font-black ${game.metacritic_score >= 80 ? "text-green-600" : game.metacritic_score >= 60 ? "text-yellow-600" : "text-red-600"}`}>
+                    {game.metacritic_score}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-gray-600 text-lg leading-relaxed mb-4">{game.description}</p>
+            
+            <div className="flex flex-wrap gap-2">
+              {game.categories?.map((c: string) => (
+                <span key={c} className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-600 border border-gray-200">
+                  {GAME_CATEGORIES.find(cat => cat.slug === c)?.name || c}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
