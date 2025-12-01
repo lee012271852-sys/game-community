@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
 import { GAME_CATEGORIES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 // 타입 정의
 type Review = {
@@ -11,8 +12,9 @@ type Review = {
   content: string;
   rating: number;
   author: string;
-  user_id: string;
+  user_id: string | null;
   created_at: string;
+  game_id?: number;
 };
 
 type Game = {
@@ -58,12 +60,22 @@ export default function GameDetailPage() {
   const [editContent, setEditContent] = useState("");
   const [editRating, setEditRating] = useState(80);
 
+  // UI state
+  const [loading, setLoading] = useState(true);
+
+  // 분리된 리뷰
+  const steamReviews = reviews.filter((r) => !r.user_id || r.author?.startsWith("SteamUser_"));
+  const siteReviews = reviews.filter((r) => r.user_id);
+
   // 데이터 로딩
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
+
       // 1. 게임 정보
-      const { data: gameData } = await supabase.from("games").select("*").eq("id", gameId).single();
-      setGame(gameData);
+      const { data: gameData, error: gameError } = await supabase.from("games").select("*").eq("id", gameId).single();
+      if (gameError) console.error("게임 로드 실패:", gameError);
+      setGame(gameData || null);
 
       if (gameData) {
         setEditForm({
@@ -74,25 +86,31 @@ export default function GameDetailPage() {
         });
       }
 
-      // 2. 유저 리뷰 목록
-      const { data: reviewData } = await supabase
+      // 2. 리뷰 목록
+      const { data: reviewData, error: reviewError } = await supabase
         .from("reviews")
         .select("*")
         .eq("game_id", gameId)
         .order("created_at", { ascending: false });
+
+      if (reviewError) console.error("리뷰 로드 실패:", reviewError);
       setReviews(reviewData || []);
 
-      // 3. 전문가 평론 목록
-      const { data: criticData } = await supabase
+      // 3. 전문가 평론
+      const { data: criticData, error: criticError } = await supabase
         .from("critic_reviews")
         .select("*")
         .eq("game_id", gameId);
+      if (criticError) console.error("전문가 평론 로드 실패:", criticError);
       setCriticReviews(criticData || []);
 
       // 4. 유저 세션
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
+
+      setLoading(false);
     };
+
     fetchData();
   }, [gameId]);
 
@@ -117,7 +135,7 @@ export default function GameDetailPage() {
   };
 
   const handleDeleteGame = async () => {
-    if (!confirm("정말 이 게임을 삭제하시겠습니까? (되돌릴 수 없습니다)")) return;
+    if (!confirm("정말 이 게임을 삭제하시겠습니까?")) return;
     const { error } = await supabase.from("games").delete().eq("id", gameId);
     if (error) alert("삭제 실패: " + error.message);
     else { alert("삭제되었습니다."); router.push("/review"); }
@@ -132,7 +150,8 @@ export default function GameDetailPage() {
       content: myReview,
       rating: myRating,
       author: user.email,
-      user_id: user.id
+      user_id: user.id,
+      created_at: new Date().toISOString(),
     });
 
     if (error) alert("등록 실패: " + error.message);
@@ -167,29 +186,61 @@ export default function GameDetailPage() {
     else window.location.reload();
   };
 
-  // 점수에 따른 색상 클래스 반환 함수
+  // 점수 색
   const getScoreColorClass = (score: number) => {
     if (score >= 80) return "border-green-500 text-green-600 bg-green-50";
     if (score >= 50) return "border-yellow-400 text-yellow-600 bg-yellow-50";
     return "border-red-400 text-red-600 bg-red-50";
   };
 
-  if (!game) return <div className="p-10 text-center">로딩 중...</div>;
+  // 태그 제거: 스팀 리뷰용
+  const cleanSteamContent = (text: string) =>
+    text
+      .replace(/\[\/?h\d\]/g, "")      
+      .replace(/\[\/?b\]/g, "")        
+      .replace(/\[\/?i\]/g, "")        
+      .replace(/\[\/?u\]/g, "")        
+      .replace(/\[\/?quote\]/g, "");   
+
+  if (loading || !game) return <div className="p-10 text-center">로딩 중...</div>;
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        
-        {/* 상단 뒤로가기 및 관리자 버튼 */}
-        <div className="flex justify-between items-center mb-6">
-          <button 
-            onClick={() => router.back()} 
-            className="text-gray-500 hover:text-orange-600 text-sm flex items-center gap-1"
-          >
-            ← 목록으로 돌아가기
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 text-gray-900">
 
-          {/* 관리자(본인)만 보이는 버튼 (필요하면 이 부분을 제거하세요) */}
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <button onClick={() => router.push("/")} className="text-2xl font-extrabold text-indigo-600 hover:text-indigo-700">GameVerse</button>
+
+          <nav className="flex items-center gap-6 text-sm font-medium">
+            <button onClick={() => router.push("/community")} className="text-gray-700 hover:text-indigo-600">커뮤니티</button>
+            <button onClick={() => router.push("/review")} className="text-indigo-700 font-semibold">평론</button>
+            <button onClick={() => router.push("/recommend")} className="text-gray-700 hover:text-indigo-600">AI 추천</button>
+            <button onClick={() => router.push("/news")} className="text-gray-700 hover:text-indigo-600">뉴스</button>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            {user ? (
+              <>
+                <span className="text-sm text-gray-600 truncate max-w-[12rem]">{user.email}</span>
+                <button onClick={async () => { await supabase.auth.signOut(); router.refresh(); }} className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-sm">로그아웃</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => router.push("/auth")} className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50">로그인</button>
+                <button onClick={() => router.push("/auth?mode=signup")} className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">회원가입</button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 py-10">
+
+        {/* 상단 버튼 */}
+        <div className="flex justify-between items-center mb-6">
+          <button onClick={() => router.back()} className="text-gray-500 hover:text-orange-600 text-sm">← 목록으로 돌아가기</button>
+
           {user && (
             <div className="flex gap-2">
               {isEditing ? (
@@ -204,169 +255,179 @@ export default function GameDetailPage() {
           )}
         </div>
 
-        {/* 게임 정보 섹션 */}
-        <div className="flex flex-col md:flex-row gap-8 mb-12 border-b pb-10">
-          <div className="w-full md:w-1/3 h-64 bg-gray-100 rounded-xl overflow-hidden shadow-md flex items-center justify-center">
-            {isEditing ? (
-               <input type="text" value={editForm.image_url} onChange={(e) => setEditForm({...editForm, image_url: e.target.value})} className="w-full m-4 border p-2 rounded" placeholder="이미지 URL" />
-            ) : (
-              game.image_url ? <img src={game.image_url} alt={game.title} className="w-full h-full object-cover" /> : <span className="text-gray-400">이미지 없음</span>
-            )}
-          </div>
+        {/* ------------------------------ */}
+        {/*        게임 정보 카드          */}
+        {/* ------------------------------ */}
+        <section className="bg-white rounded-xl border border-indigo-100 shadow-sm p-6 mb-8">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="md:w-1/3 h-64 rounded-lg bg-gray-100 overflow-hidden">
+              {isEditing ? (
+                <input type="text" value={editForm.image_url} onChange={(e) => setEditForm({...editForm, image_url: e.target.value})} className="w-full h-full p-2" placeholder="이미지 URL" />
+              ) : game.image_url ? (
+                <img src={game.image_url} alt={game.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">이미지 없음</div>
+              )}
+            </div>
 
-          <div className="flex-1">
-            {isEditing ? (
-              <div className="space-y-3">
-                <input type="text" value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})} className="w-full text-2xl font-bold border p-2 rounded" placeholder="게임 제목" />
-                <textarea value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} className="w-full h-32 border p-2 rounded" placeholder="게임 설명" />
-                <input type="text" value={editForm.categories} onChange={(e) => setEditForm({...editForm, categories: e.target.value})} className="w-full border p-2 rounded" placeholder="태그 (쉼표로 구분)" />
-              </div>
-            ) : (
-              <>
-                <h1 className="text-4xl font-extrabold mb-4">{game.title}</h1>
-                
-                {/* 점수 뱃지 (메타/오픈) */}
-                <div className="flex gap-3 mb-6">
-                  {game.opencritic_score && game.opencritic_score > 0 && (
-                    <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">OpenCritic</span>
-                        <span className={`text-2xl font-black ${game.opencritic_score >= 84 ? "text-blue-600" : game.opencritic_score >= 75 ? "text-green-600" : "text-yellow-600"}`}>
-                          {game.opencritic_score}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {game.metacritic_score && game.metacritic_score > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">Metacritic</span>
-                      <span className={`text-xl font-black ${game.metacritic_score >= 80 ? "text-green-600" : game.metacritic_score >= 60 ? "text-yellow-600" : "text-red-600"}`}>
-                        {game.metacritic_score}
+            <div className="flex-1">
+              {isEditing ? (
+                <div className="space-y-3">
+                  <input value={editForm.title} onChange={(e) => setEditForm({...editForm, title: e.target.value})} className="w-full text-2xl font-bold border p-2 rounded" />
+                  <textarea value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} className="w-full h-32 border p-2 rounded" />
+                  <input value={editForm.categories} onChange={(e) => setEditForm({...editForm, categories: e.target.value})} className="w-full border p-2 rounded" placeholder="tag1, tag2" />
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-3xl font-extrabold mb-3">{game.title}</h1>
+                  <p className="text-gray-600 mb-4 leading-relaxed">{game.description}</p>
+
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {game.categories?.map((c) => (
+                      <span key={c} className="px-3 py-1 rounded-full bg-gray-100 text-sm text-gray-600 border border-gray-200">
+                        {GAME_CATEGORIES.find(cat => cat.slug === c)?.name || c}
                       </span>
-                    </div>
-                  )}
-                </div>
+                    ))}
+                  </div>
 
-                <p className="text-gray-600 text-lg leading-relaxed mb-4">{game.description}</p>
-                
-                <div className="flex flex-wrap gap-2">
-                  {game.categories?.map((c: string) => (
-                    <span key={c} className="px-3 py-1 bg-gray-100 rounded-full text-sm font-medium text-gray-600 border border-gray-200">
-                      {GAME_CATEGORIES.find(cat => cat.slug === c)?.name || c}
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
+                  <div className="flex gap-3">
+                    {game.opencritic_score && <div className="px-3 py-2 bg-gray-50 border rounded">OpenCritic: <strong className="ml-2">{game.opencritic_score}</strong></div>}
+                    {game.metacritic_score && <div className="px-3 py-2 bg-gray-50 border rounded">Metacritic: <strong className="ml-2">{game.metacritic_score}</strong></div>}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* 전문가 평론 섹션 */}
+        {/* ------------------------------ */}
+        {/*        전문가 평론              */}
+        {/* ------------------------------ */}
         {criticReviews.length > 0 && (
-          <div className="mb-12">
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">✒️ 전문가 평론 <span className="text-sm font-normal text-gray-500">(OpenCritic)</span></h3>
+          <section className="mb-12">
+            <h2 className="text-xl font-bold mb-4">✒️ 전문가 평론</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {criticReviews.map((cr) => (
-                <a key={cr.id} href={cr.url} target="_blank" rel="noopener noreferrer" className="block p-5 rounded-xl border border-gray-200 bg-gray-50 hover:border-gray-300 hover:shadow-sm transition">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="font-bold text-gray-900">{cr.outlet}</span>
-                    {cr.rating && <span className="text-sm font-bold px-2 py-0.5 bg-gray-200 rounded">{cr.rating}점</span>}
+                <a key={cr.id} href={cr.url} target="_blank" rel="noreferrer" className="block p-4 bg-white border rounded-lg shadow-sm hover:shadow">
+                  <div className="flex justify-between items-center mb-2">
+                    <strong>{cr.outlet}</strong>
+                    <span className="text-sm text-gray-500">{cr.rating}점</span>
                   </div>
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-2">"{cr.content}"</p>
-                  <span className="text-xs text-gray-400">by {cr.author}</span>
+                  <p className="text-sm text-gray-600 line-clamp-3">{cr.content}</p>
+                  <div className="text-xs text-gray-400 mt-2">by {cr.author}</div>
                 </a>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* 유저 리뷰 작성 (100점 만점 수정됨) */}
-        <div className="mb-12 bg-gray-50 p-6 rounded-xl border border-gray-100">
-          <h3 className="text-lg font-bold mb-4">이 게임을 평가해주세요</h3>
-          {user ? (
-            <div className="space-y-4">
-              {/* 점수 입력 (숫자 + 슬라이더) */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-700">내 점수:</span>
-                  <input 
-                    type="number" 
-                    min="0" max="100" 
-                    value={myRating} 
-                    onChange={(e) => setMyRating(Number(e.target.value))} 
-                    className="border-2 border-orange-200 p-2 rounded-lg w-20 text-center text-xl font-bold text-orange-600 focus:outline-none focus:border-orange-500"
-                  />
-                  <span className="text-gray-400 font-medium">/ 100</span>
+        {/* ============================================================= */}
+        {/*   🔥🔥 사이트 유저 리뷰 작성 + 사이트 리뷰 목록 (위로 이동!) 🔥🔥 */}
+        {/* ============================================================= */}
+        <section className="mb-12">
+          <h2 className="text-xl font-bold mb-4">👥 사이트 유저 리뷰</h2>
+
+          {/* 리뷰 작성 */}
+          <div className="mb-6 bg-white p-6 rounded-xl border shadow-sm">
+            {user ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className={`min-w-[56px] h-14 rounded-xl border-2 flex items-center justify-center ${getScoreColorClass(myRating)}`}>
+                    <span className="text-xl font-extrabold">{myRating}</span>
+                  </div>
+                  <div className="flex-1">
+                    <input type="range" min={0} max={100} value={myRating} onChange={(e) => setMyRating(Number(e.target.value))} className="w-full" />
+                    <div className="text-sm text-gray-500">슬라이더로 점수를 조절하세요</div>
+                  </div>
                 </div>
-                <input 
-                  type="range" min="0" max="100" 
-                  value={myRating} 
-                  onChange={(e) => setMyRating(Number(e.target.value))} 
-                  className="flex-1 accent-orange-600 h-2 bg-gray-200 rounded-lg cursor-pointer"
-                />
+
+                <textarea value={myReview} onChange={(e) => setMyReview(e.target.value)} className="w-full h-28 border p-3 rounded-lg" placeholder="리뷰 내용을 입력하세요..." />
+                <div className="flex justify-end">
+                  <button onClick={handleSubmitReview} className="px-5 py-2 bg-orange-600 text-white rounded-lg">등록하기</button>
+                </div>
               </div>
+            ) : (
+              <div className="text-center text-gray-500">리뷰를 작성하려면 <button onClick={() => router.push('/auth')} className="text-orange-600 font-semibold">로그인</button>이 필요합니다.</div>
+            )}
+          </div>
 
-              <textarea className="w-full border p-4 rounded-xl h-32 resize-none focus:ring-2 focus:ring-orange-500 outline-none bg-white" placeholder="이 게임에 대한 솔직한 평가를 남겨주세요." value={myReview} onChange={(e) => setMyReview(e.target.value)} />
-              <div className="flex justify-end"><button onClick={handleSubmitReview} className="px-6 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition">등록하기</button></div>
-            </div>
-          ) : (
-            <div className="text-center py-4 text-gray-500">리뷰를 작성하려면 <span className="text-orange-600 font-bold cursor-pointer" onClick={() => router.push("/auth")}>로그인</span>이 필요합니다.</div>
-          )}
-        </div>
-
-        {/* 유저 리뷰 목록 (100점 만점 표시 수정됨) */}
-        <div>
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            👤 유저 리뷰 <span className="text-gray-400 text-sm font-normal">({reviews.length})</span>
-          </h3>
+          {/* 사이트 리뷰 목록 */}
           <div className="space-y-4">
-            {reviews.map((r) => (
-              <div key={r.id} className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm hover:border-gray-200 transition">
+            {siteReviews.map((r) => (
+              <div key={r.id} className="bg-white p-4 rounded-xl border shadow-sm">
                 {editingReviewId === r.id ? (
-                  // 수정 모드
-                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <div>
                     <div className="flex items-center gap-4 mb-3">
-                      <span className="font-bold text-gray-700">점수 수정:</span>
-                      <input type="number" min="0" max="100" value={editRating} onChange={(e) => setEditRating(Number(e.target.value))} className="border p-2 rounded w-20 text-center font-bold"/>
-                      <input type="range" min="0" max="100" value={editRating} onChange={(e) => setEditRating(Number(e.target.value))} className="flex-1 accent-orange-600 cursor-pointer"/>
+                      <input type="number" min={0} max={100} value={editRating} onChange={(e) => setEditRating(Number(e.target.value))} className="w-20 border p-2 rounded" />
+                      <input type="range" min={0} max={100} value={editRating} onChange={(e) => setEditRating(Number(e.target.value))} className="flex-1" />
                     </div>
-                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full border p-2 rounded h-24 resize-none mb-2 bg-white"/>
+                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full h-24 border p-2 rounded mb-3" />
                     <div className="flex justify-end gap-2">
-                      <button onClick={cancelEditing} className="px-3 py-1 bg-gray-300 rounded text-sm font-medium">취소</button>
-                      <button onClick={() => saveEditedReview(r.id)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium">수정 완료</button>
+                      <button onClick={cancelEditing} className="px-3 py-1 bg-gray-200 rounded">취소</button>
+                      <button onClick={() => saveEditedReview(r.id)} className="px-3 py-1 bg-blue-600 text-white rounded">수정</button>
                     </div>
                   </div>
                 ) : (
-                  // 일반 보기 모드
                   <div className="flex gap-4">
-                    {/* 점수 박스 */}
-                    <div className={`flex flex-col items-center justify-center min-w-[3.5rem] h-14 rounded-xl border-2 ${getScoreColorClass(r.rating)}`}>
-                      <span className="text-xl font-extrabold leading-none">{r.rating}</span>
+                    <div className={`min-w-[56px] h-14 rounded-xl border-2 flex items-center justify-center ${getScoreColorClass(r.rating)}`}>
+                      <span className="text-xl font-extrabold">{r.rating}</span>
                     </div>
-
                     <div className="flex-1">
-                      <div className="flex justify-between items-start mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-gray-900">{r.author?.split("@")[0] || "익명"}</span>
-                          <span className="text-xs text-gray-400">· {new Date(r.created_at).toLocaleDateString()}</span>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="font-bold">{r.author?.split("@")[0] ?? "익명"}</div>
+                          <div className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString()}</div>
                         </div>
                         {user && user.id === r.user_id && (
                           <div className="flex gap-2">
-                            <button onClick={() => startEditing(r)} className="text-xs text-blue-500 hover:underline">수정</button>
-                            <button onClick={() => handleDeleteReview(r.id)} className="text-xs text-red-500 hover:underline">삭제</button>
+                            <button onClick={() => startEditing(r)} className="text-sm text-blue-500">수정</button>
+                            <button onClick={() => handleDeleteReview(r.id)} className="text-sm text-red-500">삭제</button>
                           </div>
                         )}
                       </div>
-                      <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{r.content}</p>
+                      <p className="text-gray-700 whitespace-pre-wrap">{r.content}</p>
                     </div>
                   </div>
                 )}
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-      </div>
+        {/* ============================ */}
+        {/*    🔽 스팀 리뷰 (맨 아래) 🔽 */}
+        {/* ============================ */}
+        <section className="mb-8">
+          <h2 className="text-xl font-bold mb-4">🕹️ 외부(스팀) 유저 평론</h2>
+          {steamReviews.length === 0 ? (
+            <div className="text-gray-500">스팀 유저 평론이 없습니다.</div>
+          ) : (
+            <div className="space-y-4">
+              {steamReviews.map((r) => (
+                <div key={r.id} className="bg-white p-4 rounded-xl border shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className={`min-w-[56px] h-14 rounded-xl border-2 flex items-center justify-center ${getScoreColorClass(r.rating)}`}>
+                      <span className="text-xl font-extrabold">{r.rating}</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="font-bold">{r.author}</div>
+                          <div className="text-xs text-gray-400">{new Date(r.created_at).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+                      <p className="text-gray-700 whitespace-pre-wrap">
+                        {cleanSteamContent(r.content)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+      </main>
     </div>
   );
 }
