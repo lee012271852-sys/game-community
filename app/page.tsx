@@ -12,7 +12,7 @@ function SmallBtn({ children, onClick, className }: any) {
     <button
       onClick={onClick}
       className={
-        "px-3 py-1.5 rounded-md text-sm font-medium transition bg-white/90 hover:bg-white " +
+        "px-3 py-1.5 rounded-md text-sm font-medium transition bg-white/90 hover:bg-white text-gray-700 border border-gray-200 " +
         (className || "")
       }
     >
@@ -40,7 +40,7 @@ function Card({ children, className, onClick }: any) {
     <div
       onClick={onClick}
       className={
-        "bg-white shadow-sm rounded-lg border border-gray-100 overflow-hidden " +
+        "bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden " +
         (onClick ? "cursor-pointer hover:shadow-md " : "") +
         (className || "")
       }
@@ -112,7 +112,6 @@ export default function HomePage() {
   /* 데이터 로드 */
   useEffect(() => {
     const load = async () => {
-      // 🔵 외부 API 리뷰 제외: source="user" 만 표시
       const latestRev = await supabase
         .from("reviews")
         .select("*")
@@ -181,16 +180,10 @@ export default function HomePage() {
               <button onClick={() => router.push("/review")} className="px-2 py-1 hover:bg-white">
                 평론
               </button>
-              <button
-                onClick={() => router.push("/community")}
-                className="px-2 py-1 hover:bg-white"
-              >
+              <button onClick={() => router.push("/community")} className="px-2 py-1 hover:bg-white">
                 커뮤니티
               </button>
-              <button
-                onClick={() => router.push("/recommend")}
-                className="px-2 py-1 hover:bg-white"
-              >
+              <button onClick={() => router.push("/recommend")} className="px-2 py-1 hover:bg-white">
                 AI 추천
               </button>
               <button onClick={() => router.push("/news")} className="px-2 py-1 hover:bg-white">
@@ -228,9 +221,7 @@ export default function HomePage() {
       {/* HERO (뉴스 준비중) */}
       <section className="max-w-7xl mx-auto px-6 pt-10 pb-8">
         <div className="w-full bg-white border border-gray-200 rounded-xl shadow-sm p-10 flex flex-col items-center justify-center">
-          <div className="text-4xl font-extrabold text-gray-800 mb-4">
-            📰 뉴스 영역 준비 중
-          </div>
+          <div className="text-4xl font-extrabold text-gray-800 mb-4">📰 뉴스 영역 준비 중</div>
           <p className="text-gray-600 text-center text-lg">
             현재 뉴스 모듈을 개발하고 있습니다.
           </p>
@@ -346,9 +337,7 @@ export default function HomePage() {
                     >
                       <div className="font-medium text-gray-900 text-sm">{n.title}</div>
                       <div className="text-xs text-gray-400 mt-1">
-                        {n.created_at
-                          ? new Date(n.created_at).toLocaleDateString()
-                          : ""}
+                        {n.created_at ? new Date(n.created_at).toLocaleDateString() : ""}
                       </div>
                     </div>
                   ))
