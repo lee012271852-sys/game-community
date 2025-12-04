@@ -4,9 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import supabase from "@/lib/supabaseClient";
 
-/* --------------------------
-   기본 UI 컴포넌트
---------------------------- */
+/* BUTTONS / CARD COMPONENTS */
 function SmallBtn({ children, onClick, className }: any) {
   return (
     <button
@@ -26,7 +24,7 @@ function PrimaryBtn({ children, onClick, className }: any) {
     <button
       onClick={onClick}
       className={
-        "px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition bg-sky-600 hover:bg-sky-700 text-white " +
+        "px-4 py-2 rounded-md text-sm font-semibold shadow-sm transition bg-indigo-600 hover:bg-indigo-700 text-white " +
         (className || "")
       }
     >
@@ -54,26 +52,22 @@ function CardBody({ children, className }: any) {
   return <div className={"p-4 " + (className || "")}>{children}</div>;
 }
 
-/* --------------------------
-   타입
---------------------------- */
 type Review = {
   id: number;
   title: string;
   content: string;
   rating?: number;
-  like_count?: number;
+  likes?: number;
   author_name?: string;
   created_at?: string;
-  source?: string; // 내부/외부 구분용
+  source?: string;
 };
 
-type CommunityPost = {
+type Community = {
   id: number;
   title: string;
-  excerpt?: string;
+  likes?: number;
   author_name?: string;
-  like_count?: number;
   created_at?: string;
 };
 
@@ -85,31 +79,26 @@ type NewsPost = {
   created_at?: string;
 };
 
-/* --------------------------
-   메인 컴포넌트
---------------------------- */
+/* MAIN PAGE */
 export default function HomePage() {
   const router = useRouter();
-
   const [user, setUser] = useState<any>(null);
 
   const [latestReviews, setLatestReviews] = useState<Review[]>([]);
   const [topReviews, setTopReviews] = useState<Review[]>([]);
-  const [latestCommunity, setLatestCommunity] = useState<CommunityPost[]>([]);
-  const [topCommunity, setTopCommunity] = useState<CommunityPost[]>([]);
+  const [latestCommunity, setLatestCommunity] = useState<Community[]>([]);
+  const [topCommunity, setTopCommunity] = useState<Community[]>([]);
   const [news, setNews] = useState<NewsPost[]>([]);
   const [activeNewsCategory, setActiveNewsCategory] = useState<string>("all");
 
   const NEWS_CATEGORIES = ["all", "industry", "pc", "console", "mobile", "esports", "hot"];
 
-  /* 로그인 상태 확인 */
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setUser(data?.session?.user ?? null);
     });
   }, []);
 
-  /* 데이터 로드 */
   useEffect(() => {
     const load = async () => {
       const latestRev = await supabase
@@ -124,29 +113,25 @@ export default function HomePage() {
         .from("reviews")
         .select("*")
         .eq("source", "user")
-        .order("like_count", { ascending: false })
+        .order("likes", { ascending: false })
         .limit(6);
       if (!topRev.error) setTopReviews(topRev.data as Review[]);
 
       const latestCom = await supabase
-        .from("community_posts")
+        .from("community")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(8);
-      if (!latestCom.error) setLatestCommunity(latestCom.data as CommunityPost[]);
+      if (!latestCom.error) setLatestCommunity(latestCom.data as Community[]);
 
       const topCom = await supabase
-        .from("community_posts")
+        .from("community")
         .select("*")
-        .order("like_count", { ascending: false })
+        .order("likes", { ascending: false })
         .limit(6);
-      if (!topCom.error) setTopCommunity(topCom.data as CommunityPost[]);
+      if (!topCom.error) setTopCommunity(topCom.data as Community[]);
 
-      const n = await supabase
-        .from("news_posts")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(200);
+      const n = await supabase.from("news_posts").select("*").order("created_at", { ascending: false });
       if (!n.error) setNews(n.data as NewsPost[]);
     };
 
@@ -160,100 +145,104 @@ export default function HomePage() {
     );
   }, [news, activeNewsCategory]);
 
-  /* --------------------------
-     UI 렌더링
---------------------------- */
   return (
-    <div className="min-h-screen bg-[#F4F3FF] text-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50 text-gray-900">
       {/* HEADER */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => router.push("/")}
-              className="text-2xl font-extrabold text-sky-600 hover:text-sky-700"
-            >
-              GameVerse
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          {/* LEFT → LOGO */}
+          <button
+            onClick={() => router.push("/")}
+            className="text-2xl font-extrabold text-indigo-600 hover:text-indigo-700"
+          >
+            GameVerse
+          </button>
+
+          {/* CENTER → NAV MENU */}
+          <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-6 text-sm font-medium">
+            <button onClick={() => router.push("/community")} className="text-gray-700 hover:text-indigo-600">
+              커뮤니티
             </button>
+            <button onClick={() => router.push("/review")} className="text-gray-700 hover:text-indigo-600">
+              평론
+            </button>
+            <button onClick={() => router.push("/recommend")} className="text-gray-700 hover:text-indigo-600">
+              AI 추천
+            </button>
+            <button onClick={() => router.push("/news")} className="text-gray-700 hover:text-indigo-600">
+              뉴스
+            </button>
+          </nav>
 
-            <nav className="hidden md:flex gap-4 text-sm text-gray-700">
-              <button onClick={() => router.push("/review")} className="px-2 py-1 hover:bg-white">
-                평론
-              </button>
-              <button onClick={() => router.push("/community")} className="px-2 py-1 hover:bg-white">
-                커뮤니티
-              </button>
-              <button onClick={() => router.push("/recommend")} className="px-2 py-1 hover:bg-white">
-                AI 추천
-              </button>
-              <button onClick={() => router.push("/news")} className="px-2 py-1 hover:bg-white">
-                뉴스
-              </button>
-            </nav>
-          </div>
-
+          {/* RIGHT → AUTH BUTTONS */}
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                <SmallBtn onClick={() => router.push("/mypage")}>내정보</SmallBtn>
-                <SmallBtn
+                <span className="text-sm text-gray-600">{user.email}</span>
+                <button
                   onClick={async () => {
                     await supabase.auth.signOut();
-                    setUser(null);
                     router.refresh();
                   }}
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md text-sm"
                 >
                   로그아웃
-                </SmallBtn>
+                </button>
               </>
             ) : (
               <>
-                <SmallBtn onClick={() => router.push("/auth")}>로그인</SmallBtn>
-                <PrimaryBtn onClick={() => router.push("/auth?mode=signup")}>
+                <button
+                  onClick={() => router.push("/auth")}
+                  className="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm hover:bg-gray-50"
+                >
+                  로그인
+                </button>
+                <button
+                  onClick={() => router.push("/auth?mode=signup")}
+                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700"
+                >
                   회원가입
-                </PrimaryBtn>
+                </button>
               </>
             )}
           </div>
         </div>
       </header>
 
-      {/* HERO (뉴스 준비중) */}
+      {/* HERO */}
       <section className="max-w-7xl mx-auto px-6 pt-10 pb-8">
-        <div className="w-full bg-white border border-gray-200 rounded-xl shadow-sm p-10 flex flex-col items-center justify-center">
+        <div className="bg-white border border-indigo-100 rounded-xl shadow-sm p-10 flex flex-col items-center justify-center">
           <div className="text-4xl font-extrabold text-gray-800 mb-4">📰 뉴스 영역 준비 중</div>
           <p className="text-gray-600 text-center text-lg">
-            현재 뉴스 모듈을 개발하고 있습니다.
+            현재 뉴스 페이지를 개발하고 있습니다.
           </p>
         </div>
       </section>
 
       {/* CONTENT */}
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 pb-16">
-        {/* 평론 영역 */}
+        {/* 리뷰 */}
         <section className="lg:col-span-7 space-y-6">
-          {/* 추천 많은 평론 */}
+          {/* TOP REVIEWS */}
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">⭐ 추천 많은 평론</h2>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {topReviews.length > 0
                 ? topReviews.map((r) => (
                     <Card key={r.id} onClick={() => router.push(`/review/${r.id}`)}>
                       <CardBody>
-                        <div className="text-sm text-gray-500">👍 {r.like_count ?? 0}</div>
-                        <h3 className="mt-2 font-semibold text-sky-600 text-lg">{r.title}</h3>
+                        <div className="text-sm text-gray-500">👍 {r.likes ?? 0}</div>
+                        <h3 className="mt-2 font-semibold text-indigo-600 text-lg">{r.title}</h3>
                       </CardBody>
                     </Card>
                   ))
-                : "평론 없음"}
+                : "개발중"}
             </div>
           </div>
 
-          {/* 최신 평론 */}
+          {/* LATEST REVIEWS */}
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">✨ 최신 평론</h2>
-
             <div className="space-y-3">
               {latestReviews.length > 0
                 ? latestReviews.map((r) => (
@@ -264,14 +253,14 @@ export default function HomePage() {
                       </CardBody>
                     </Card>
                   ))
-                : "최근 평론 없음"}
+                : "개발중"}
             </div>
           </div>
         </section>
 
-        {/* 우측: 커뮤니티 & 뉴스 */}
+        {/* RIGHT SIDE */}
         <aside className="lg:col-span-5 space-y-6">
-          {/* 추천 많은 커뮤니티 */}
+          {/* TOP COMMUNITY */}
           <div>
             <h3 className="text-xl font-bold text-gray-900 mb-3">🔥 추천 많은 게시글</h3>
             <div className="space-y-3">
@@ -280,7 +269,7 @@ export default function HomePage() {
                     <Card key={p.id} onClick={() => router.push(`/community/${p.id}`)}>
                       <CardBody>
                         <div className="font-medium">{p.title}</div>
-                        <div className="text-xs text-gray-500 mt-1">♥ {p.like_count ?? 0}</div>
+                        <div className="text-xs text-gray-500 mt-1">♥ {p.likes ?? 0}</div>
                       </CardBody>
                     </Card>
                   ))
@@ -288,7 +277,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* 최신 커뮤니티 */}
+          {/* LATEST COMMUNITY */}
           <div>
             <h3 className="text-xl font-bold text-gray-900 mb-3">📝 최신 커뮤니티 글</h3>
             <div className="space-y-2 max-h-72 overflow-auto pr-2">
@@ -297,17 +286,17 @@ export default function HomePage() {
                     <div
                       key={p.id}
                       onClick={() => router.push(`/community/${p.id}`)}
-                      className="flex items-start justify-between gap-2 bg-white rounded-md p-3 border hover:shadow-sm cursor-pointer"
+                      className="flex items-start justify-between gap-2 bg-white rounded-md p-3 border hover:bg-indigo-50 cursor-pointer"
                     >
                       <div className="font-medium text-gray-900">{p.title}</div>
-                      <div className="text-sm text-gray-500">♥ {p.like_count ?? 0}</div>
+                      <div className="text-sm text-gray-500">♥ {p.likes ?? 0}</div>
                     </div>
                   ))
                 : "게시글 없음"}
             </div>
           </div>
 
-          {/* 뉴스 */}
+          {/* NEWS */}
           <div>
             <h3 className="text-xl font-bold text-gray-900 mb-3">🗞 뉴스</h3>
 
@@ -318,7 +307,7 @@ export default function HomePage() {
                   onClick={() => setActiveNewsCategory(c)}
                   className={`px-2 py-1 text-xs rounded-md border ${
                     activeNewsCategory === c
-                      ? "bg-sky-600 text-white"
+                      ? "bg-indigo-600 text-white"
                       : "bg-white text-gray-700 border-gray-200"
                   }`}
                 >
@@ -333,7 +322,7 @@ export default function HomePage() {
                     <div
                       key={n.id}
                       onClick={() => router.push(`/news/${n.id}`)}
-                      className="bg-white border rounded-md p-3 hover:shadow cursor-pointer"
+                      className="bg-white border rounded-md p-3 hover:bg-indigo-50 cursor-pointer"
                     >
                       <div className="font-medium text-gray-900 text-sm">{n.title}</div>
                       <div className="text-xs text-gray-400 mt-1">
@@ -348,11 +337,12 @@ export default function HomePage() {
       </div>
 
       {/* FOOTER */}
-      <footer className="border-t bg-white">
-        <div className="max-w-7xl mx-auto px-6 py-8 text-sm text-gray-600">
+      <footer className="border-t bg-white py-8">
+        <div className="max-w-7xl mx-auto px-6 text-sm text-gray-600">
           © 2025 GameVerse
         </div>
       </footer>
     </div>
   );
 }
+

@@ -31,11 +31,8 @@ export const GAME_CATEGORIES = [
   { slug: 'scifi', name: 'SF (공상과학)' },
   { slug: 'fantasy', name: '판타지' },
   { slug: 'cyberpunk', name: '사이버펑크' },
-  { slug: 'story-rich', name: '스토리 풍부' },
   
   // 멀티플레이
   { slug: 'mmo', name: 'MMO' },
-  { slug: 'multiplayer', name: '멀티플레이어' },
   { slug: 'co-op', name: '협동' },
-  { slug: 'esports', name: 'e스포츠' },
 ];

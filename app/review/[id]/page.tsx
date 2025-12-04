@@ -325,7 +325,7 @@ export default function GameDetailPage() {
         {/*   🔥🔥 사이트 유저 리뷰 작성 + 사이트 리뷰 목록 (위로 이동!) 🔥🔥 */}
         {/* ============================================================= */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold mb-4">👥 사이트 유저 리뷰</h2>
+          <h2 className="text-xl font-bold mb-4">유저 리뷰</h2>
 
           {/* 리뷰 작성 */}
           <div className="mb-6 bg-white p-6 rounded-xl border shadow-sm">
