@@ -157,13 +157,10 @@ export default function EditPage() {
   return (
     <div className="min-h-screen bg-[#F4F8FF]">
 
-      {/* ---------------- 헤더 (메인 페이지와 완전히 동일) ---------------- */}
       <Header user={user} />
 
-      {/* ---------------- 본문 ---------------- */}
       <div className="max-w-5xl mx-auto px-6 py-8">
 
-        {/* 제목 */}
         <input
           className="w-full p-3 rounded border text-lg bg-white"
           placeholder="제목을 입력하세요"
@@ -171,7 +168,6 @@ export default function EditPage() {
           onChange={(e) => setTitle(e.target.value)}
         />
 
-        {/* 옵션 */}
         <div className="mt-2 flex gap-3 items-center">
           <select
             className="px-2 py-1 border rounded bg-white text-sm"
@@ -196,7 +192,6 @@ export default function EditPage() {
           </label>
         </div>
 
-        {/* 툴바 */}
         <Toolbar
           exec={exec}
           insertImage={insertImage}
@@ -205,7 +200,6 @@ export default function EditPage() {
           deleteSelectedImage={deleteSelectedImage}
         />
 
-        {/* 에디터 */}
         <div className="bg-white border rounded shadow-sm mt-2">
           <div
             ref={editorRef}
@@ -216,7 +210,6 @@ export default function EditPage() {
           />
         </div>
 
-        {/* Preview */}
         {previewOpen && (
           <div className="mt-4 bg-white border p-4 rounded shadow">
             <div
@@ -226,7 +219,6 @@ export default function EditPage() {
           </div>
         )}
 
-        {/* bottom submit */}
         <div className="mt-4 flex justify-end">
           <button
             className={`px-4 py-2 rounded text-white ${loading ? "bg-gray-400" : "bg-sky-600"}`}
@@ -238,7 +230,6 @@ export default function EditPage() {
         </div>
       </div>
 
-      {/* 스타일 */}
       <style jsx>{`
         .editor-image {
           max-width: 100%;
@@ -253,81 +244,82 @@ export default function EditPage() {
   );
 }
 
-/* ============================ HEADER COMPONENT ============================ */
-
 function Header({ user }: { user: any }) {
   const router = useRouter();
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+  <div className="relative max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
 
-        <div className="flex items-center gap-6">
+    {/* LEFT AREA / LOGO */}
+    <div className="flex items-center">
+      <button
+        onClick={() => router.push("/")}
+        className="text-2xl font-extrabold text-indigo-600 hover:text-sky-600"
+      >
+        GameVerse
+      </button>
+    </div>
+
+    {/* CENTER NAV */}
+    <nav className="hidden md:flex gap-6 text-sm text-gray-700 absolute left-1/2 -translate-x-1/2">
+      <button onClick={() => router.push("/community")} className="px-2 py-1 rounded-md hover:bg-white">
+        커뮤니티
+      </button>
+      <button onClick={() => router.push("/review")} className="px-2 py-1 rounded-md hover:bg-white">
+        평론
+      </button>
+      <button onClick={() => router.push("/recommend")} className="px-2 py-1 rounded-md hover:bg-white">
+        AI 추천
+      </button>
+      <button onClick={() => router.push("/news")} className="px-2 py-1 rounded-md hover:bg-white">
+        뉴스
+      </button>
+    </nav>
+
+    {/* RIGHT USER MENU */}
+    <div className="flex items-center gap-3">
+      {user ? (
+        <>
           <button
-            onClick={() => router.push("/")}
-            className="text-2xl font-extrabold text-indigo-600 hover:text-sky-600"
+            onClick={() => router.push("/mypage")}
+            className="px-3 py-1.5 rounded-md text-sm font-medium bg-white/90 hover:bg-white"
           >
-            GameVerse
+            내정보
           </button>
 
-          {/* NAV */}
-          <nav className="hidden md:flex gap-4 text-sm text-gray-700">
-            <button onClick={() => router.push("/review")} className="px-2 py-1 rounded-md hover:bg-white">
-              평론
-            </button>
-            <button onClick={() => router.push("/community")} className="px-2 py-1 rounded-md hover:bg-white">
-              커뮤니티
-            </button>
-            <button onClick={() => router.push("/recommend")} className="px-2 py-1 rounded-md hover:bg-white">
-              AI 추천
-            </button>
-            <button onClick={() => router.push("/news")} className="px-2 py-1 rounded-md hover:bg-white">
-              뉴스
-            </button>
-          </nav>
-        </div>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.refresh();
+            }}
+            className="px-3 py-1.5 rounded-md text-sm font-medium bg-white/90 hover:bg-white"
+          >
+            로그아웃
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            onClick={() => router.push("/auth")}
+            className="px-3 py-1.5 rounded-md text-sm font-medium bg-white/90 hover:bg-white"
+          >
+            로그인
+          </button>
 
-        <div className="flex items-center gap-3">
-          {user ? (
-            <>
-              <button
-                onClick={() => router.push("/mypage")}
-                className="px-3 py-1.5 rounded-md text-sm font-medium bg-white/90 hover:bg-white"
-              >
-                내정보
-              </button>
+          <button
+            onClick={() => router.push("/auth?mode=signup")}
+            className="px-4 py-2 rounded-lg text-sm font-semibold shadow-sm bg-sky-600 hover:bg-sky-700 text-white"
+          >
+            회원가입
+          </button>
+        </>
+      )}
+    </div>
 
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  router.refresh();
-                }}
-                className="px-3 py-1.5 rounded-md text-sm font-medium bg-white/90 hover:bg-white"
-              >
-                로그아웃
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => router.push("/auth")}
-                className="px-3 py-1.5 rounded-md text-sm font-medium bg-white/90 hover:bg-white"
-              >
-                로그인
-              </button>
+  </div>
+</header>
 
-              <button
-                onClick={() => router.push("/auth?mode=signup")}
-                className="px-4 py-2 rounded-lg text-sm font-semibold shadow-sm bg-sky-600 hover:bg-sky-700 text-white"
-              >
-                회원가입
-              </button>
-            </>
-          )}
-        </div>
-
-      </div>
-    </header>
   );
 }
 
@@ -338,28 +330,66 @@ function Toolbar({ exec, insertImage, previewOpen, setPreviewOpen, deleteSelecte
     <div className="bg-white border p-3 rounded mt-4 mb-3">
       <div className="flex flex-wrap gap-2 items-center">
 
-        <button className="toolbar-btn" onClick={() => exec("bold")}>B</button>
-        <button className="toolbar-btn" onClick={() => exec("italic")}>I</button>
-        <button className="toolbar-btn" onClick={() => exec("underline")}>U</button>
-        <button className="toolbar-btn" onClick={() => exec("strikeThrough")}>S</button>
+        {/* Bold */}
+        <button
+          className="toolbar-btn font-bold"
+          onClick={() => exec("bold")}
+        >
+          가
+        </button>
+
+        {/* Italic */}
+        <button
+          className="toolbar-btn italic"
+          onClick={() => exec("italic")}
+        >
+          가
+        </button>
+
+        {/* Underline */}
+        <button
+          className="toolbar-btn"
+          style={{ textDecoration: "underline" }}
+          onClick={() => exec("underline")}
+        >
+          가
+        </button>
+
+        {/* StrikeThrough */}
+        <button
+          className="toolbar-btn"
+          style={{ textDecoration: "line-through" }}
+          onClick={() => exec("strikeThrough")}
+        >
+          가
+        </button>
 
         <div className="w-px h-6 bg-gray-300 mx-2" />
 
+        {/* Alignment */}
         <button className="toolbar-btn" onClick={() => exec("justifyLeft")}>L</button>
         <button className="toolbar-btn" onClick={() => exec("justifyCenter")}>C</button>
         <button className="toolbar-btn" onClick={() => exec("justifyRight")}>R</button>
 
+        {/* Lists */}
         <button className="toolbar-btn" onClick={() => exec("insertUnorderedList")}>•</button>
         <button className="toolbar-btn" onClick={() => exec("insertOrderedList")}>1.</button>
 
-        <button className="toolbar-btn" onClick={() => exec("insertHTML", "<pre class='code-block'>코드 입력</pre>")}>
+        {/* Code Block */}
+        <button
+          className="toolbar-btn"
+          onClick={() => exec("insertHTML", "<pre class='code-block'>코드 입력</pre>")}
+        >
           {"</>"}
         </button>
 
+        {/* Image */}
         <button className="toolbar-btn" onClick={insertImage}>🖼</button>
 
+        {/* Delete Image */}
         <button className="toolbar-btn" onClick={deleteSelectedImage}>🗑</button>
 
+        {/* Preview */}
         <button
           className="px-2 py-1 border rounded text-sm ml-auto"
           onClick={() => setPreviewOpen((v: any) => !v)}
@@ -376,6 +406,7 @@ function Toolbar({ exec, insertImage, previewOpen, setPreviewOpen, deleteSelecte
           border: 1px solid #dee3ea;
           border-radius: 6px;
           cursor: pointer;
+          font-size: 14px;
         }
         .toolbar-btn:hover {
           background: #eef2f8;
