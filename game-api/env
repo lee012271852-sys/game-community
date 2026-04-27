@@ -1,0 +1,18 @@
+# ==============================
+# Supabase 백엔드용 (Service Role Key)
+# ==============================
+SUPABASE_URL=https://hmcdcgenxmxyqajbispd.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtY2RjZ2VueG14eXFhamJpc3BkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjE3MTI1OCwiZXhwIjoyMDc3NzQ3MjU4fQ.w8V-t4Y2sx7J5LmL8QM0q-a6fkpkKz85Cd7JBe9Ooxw
+# ==============================
+# RapidAPI 키 (Metacritic API용)
+# ==============================
+RAPIDAPI_KEY=process.env.RAPIDAPI_KEY
+# ==============================
+# IGDB / Twitch API
+# ==============================
+TWITCH_CLIENT_ID=6jsjt3oyj9g31kxas10j5m35r14jl9
+TWITCH_TOKEN=eyw3y9mltdfs725zwenr088lzqvz6f
+# ==============================
+# RAWG용
+# ==============================
+RAWG_API_KEY=6b3ac29ab9944564b99fb4f0a4b48fb7
